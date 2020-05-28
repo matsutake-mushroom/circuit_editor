@@ -6,6 +6,8 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using System.Xml;
+using Svg;
 
 namespace 回路図エディタ
 {
@@ -34,9 +36,10 @@ namespace 回路図エディタ
     {
         private readonly Regex regex = new Regex(@"(?<=[(（\[]).*?(?=[)）\]])");
         private readonly Regex find_node = new Regex(@"(\*|R|C|OP|SW|NPN|PNP|MFET)[0-9]*?(\[[^\[\]]*\])??");
-        public void Compile(string source)
+        public List<CircuitObject> Compile(string source)
         {
             var lines = source.Split('\n');
+            var nodes_ret = new List<CircuitObject>();
             foreach (var line in lines)
             {
                 var trials = find_node.Matches(line);
@@ -64,9 +67,11 @@ namespace 回路図エディタ
                         case 'R':
                             Console.WriteLine("Register");
                             Register r = new Register();
+                            Console.WriteLine("+1");
                             var arguments = regex.Match(nodeName).Value;
                             var arg_list = arguments.Split(',');
                             int argc = arg_list.Length;
+                            Console.WriteLine("+2");
                             for(int i =0; i<argc; ++i)
                             {
                                 string arg = arg_list[i];
@@ -143,23 +148,29 @@ namespace 回路図エディタ
                         default:
                             break;
                     }
+
+                    nodes_ret = new List<CircuitObject>(nodelist);
+
+
                 }
 
-                //位置整形
+                //位置整形 + connect?
 
 
             }
+
+            return nodes_ret;
         }
     }
 
 
     public class Node
     {
-        public int x;
-        public int y;
+        public float x;
+        public float y;
         public bool connected;
 
-        public Node(int _x, int _y)
+        public Node(float _x, float _y)
         {
             x = _x;
             y = _y;
@@ -179,28 +190,28 @@ namespace 回路図エディタ
 
     public class CircuitObject
     {
-        private int x;
-        private int y;
-        private int height;
-        private int width;
+        protected float x;
+        protected float y;
+        protected float height;
+        protected float width;
         public string name;
-        private List<Node> nodes;
+        protected Dictionary<string, Node> nodes;
 
-        public void Move(int dx, int dy)
+        public void Move(float dx, float dy)
         {
             x += dx;
             y += dy;
             foreach (var n in nodes)
             {
-                n.x += dx;
-                n.y += dy;
+                n.Value.x += dx;
+                n.Value.y += dy;
             }
         }
 
 
         public void Rotate90()
         {
-            int prev_x = x, prev_y = y, prev_h = height;
+            float prev_x = x, prev_y = y, prev_h = height;
             x = -prev_y;
             y = prev_x;
             height = width;
@@ -208,9 +219,9 @@ namespace 回路図エディタ
 
             foreach (var node in nodes)
             {
-                prev_x = node.x;
-                node.x = -node.y;
-                node.y = prev_x;
+                prev_x = node.Value.x;
+                node.Value.x = -node.Value.y;
+                node.Value.y = prev_x;
             }
         }
 
@@ -220,12 +231,18 @@ namespace 回路図エディタ
         }
 
 
-        public CircuitObject(int _height, int _width)
+        public CircuitObject(float _height, float _width)
         {
             x = 0;
             y = 0;
             height = _height;
             width = _width;
+            nodes = new Dictionary<string, Node>();
+        }
+
+        public virtual SvgGroup Draw()
+        {
+            return null;
         }
     }
 
@@ -244,9 +261,42 @@ namespace 回路図エディタ
         private Unit unit;
         
 
-        public Register() : base(2, 8)
+        public Register() : base(2, 7)
         {
-            ;
+            Node input = new Node(1, 0);
+            Node output = new Node(1, 7);
+
+            nodes["input"] = input;
+            nodes["output"] = output;
+        }
+
+        public override SvgGroup Draw() 
+        {
+            var group = new SvgGroup();
+            //長方形をかく
+            group.Children.Add(new SvgRectangle()
+            {
+                X = x + 2,
+                Y = y + 0.5f,
+                Width = 3,
+                Height = 1,
+            });
+            //線をつなぐ
+            group.Children.Add(new SvgLine()
+            {
+                StartX = x + 0,
+                StartY = x + 1,
+                EndX =  2,
+                EndY = 1,
+            });
+            group.Children.Add(new SvgLine()
+            {
+                StartX = x + 5,
+                StartY = x + 1,
+                EndX = 7,
+                EndY = 1,
+            });
+            return group;
         }
 
     }

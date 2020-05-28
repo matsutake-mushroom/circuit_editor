@@ -15,11 +15,14 @@ namespace 回路図エディタ
     {
         private CircuitCompiler compiler;
         private TextFormatter formatter;
+        private SvgDrawer drawer;
         public Form1()
         {
             InitializeComponent();
             compiler = new CircuitCompiler();
             formatter = new TextFormatter(richTextBox1);
+            drawer = new SvgDrawer();
+            
         }
 
         private void RichTextBox1_TextChanged(object sender, EventArgs e)
@@ -27,7 +30,9 @@ namespace 回路図エディタ
             try
             {
                 formatter.exec();
-                compiler.Compile(richTextBox1.Text);
+                var output = compiler.Compile(richTextBox1.Text);
+                pictureBox1.Image = drawer.Draw(output);
+
             }
             catch (Exception exception)
             {
